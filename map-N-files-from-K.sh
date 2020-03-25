@@ -22,6 +22,9 @@ if [ $# -ne 2 ]; then
   echo "Example:
     map-N-files-from-K.sh  32  65
 would align file pairs starting at 65 and going up to 96
+
+NOTE: you should choose N and K so that all the FASTQ files from each
+sample involved are processed.
     "
     
     exit 1;
@@ -37,12 +40,19 @@ conda activate bioinf
 START=$2
 STOP=$(($START + $1 - 1))
 
+# get the names of the all the different samples (SM tags) that
+# are being processed here.  This is necessary, because we end up 
+# having to merge all the lane-specific bams into a single bam for
+# each sample in order to mark duplicates in it, etc.
+SM_TAGS=$(awk -v low=$START -v high=$STOP '$1 >= low && $1 <= high {print $5}' chinook-fastq-meta-data.tsv | uniq)
+
 # loop over those file indexes and do the alignment steps on all of them.
 # NOTE: If you want to test the lines inside the loop just set Idx=5 (for example)
 # on the command line and then run through the lines within the for loop.
 for((Idx=$START; Idx<=$STOP; Idx++)); do
 
   echo "Starting work on file index $Idx at $(date)"
+  
   
   # This awk script extracts the appropriate line from the chinook-fastq-meta-data.tsv
   # file and makes a command line that sets shell variables named after the column
@@ -65,26 +75,53 @@ for((Idx=$START; Idx<=$STOP; Idx++)); do
   READ1=fastqs/${file_prefix}1.fq.gz
   GENOME=genome/GCA_002872995.1_Otsh_v1.0_genomic.fna.gz
   FIXEDMATES=bam/${file_prefix}_FIXED.bam
-  MARKED=bam/${file_prefix}_mkdup.bam
+  SORTED=bam/${file_prefix}_SORTED.bam
   BWA_STDERR=stderr/bwa_stderr_$file_prefix
   SAM_VIEW_STDERR=stderr/samtools_view_stderr_$file_prefix
   SAM_FIX_STDERR=stderr/samtools_fixmate_stderr_$file_prefix
   SAM_SORT_STDERR=stderr/samtools_sort_stderr_$file_prefix
-  SAM_MARK_STDERR=stderr/samtools_markdup_stderr_$file_prefix
+ 
+  
   
   # make a variable for the read-group string
   RGString="@RG\tID:$ID\tSM:$SM\tLB:$LB\tPU:$PU\tPL:$PL"
   
-  # now, map, convert to bam, fix mates, sort in coordinate order, mark dupes, and
+  # now, map, convert to bam, fix mates, sort in coordinate order, and
   # finally remove the intermediate fixed-mate file
-  (bwa mem -R $RGString $GENOME $READ1 $READ2 2> $BWA_STDERR | \
+  bwa mem -R $RGString $GENOME $READ1 $READ2 2> $BWA_STDERR | \
     samtools view -b -1 - 2> $SAM_VIEW_STDERR | \
-    samtools fixmate -m -O BAM - $FIXEDMATES 2> $SAM_FIX_STDERR) && \
-  (samtools sort $FIXEDMATES 2> $SAM_SORT_STDERR | \
-    samtools markdup - $MARKED) &&
+    samtools fixmate -m -O BAM - $FIXEDMATES 2> $SAM_FIX_STDERR && \
+  samtools sort $FIXEDMATES 2> $SAM_SORT_STDERR > $SORTED &&
   rm -f $FIXEDMATES &&
-  echo "Done working on file index $Idx at $(date)" # this only gets printed if it was successful
+  echo "Done mapping file index $Idx at $(date)" # this only gets printed if it was successful
   
 done
 
+# Once that is all done we have to merge all the SORTED bam files
+# from each sample (SM) into a single BAM file, and we shall also
+# mark duplicates in it:
+
+# make a directory for the output
+mkdir -p mkdup
+
+# cycle over the samples that were processed and merge them across lanes
+for SM in $SM_TAGS; do 
+  # get the names of the lane-specific sorted BAMS for each sample
+  INPUT_BAMS=$(awk -F"\t" -v sm=$SM '$1 == sm {print $2}' chinook-all-prefixes-for-samples.tsv |
+                 awk '{for(i=1;i<=NF;i++) printf("bam/%s_SORTED.bam  ", $i)}')
+  
+  # some output file names              
+  MERGED_OUTPUT=mkdup/${SM}_MERGED.bam
+  MKDUP_OUTPUT=mkdup/${SM}_mkdup.bam
+  
+  # some error file names
+  SAM_MERGE_STDERR=stderr/samtools_merge_stderr_$SM
+  SAM_MARK_STDERR=stderr/samtools_markdup_stderr_$SM
+  
+  # then we merge them and mark duplicates
+  samtools merge $MERGED_OUTPUT $INPUT_BAMS  2> $SAM_MERGE_STDERR &&
+  samtools markdup $MERGED_OUTPUT $MKDUP_OUTPUT  2> $SAM_MARK_STDERR &&
+  rm -f $MERGED_OUTPUT
+  
+done
 

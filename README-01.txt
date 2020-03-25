@@ -97,8 +97,8 @@ push them back to GitHub to get credit.
 The commands to print the file sizes and MD5 hashes that you use must be these
 (executed from the top level of this repository):
 
-du -h bam/* > bam_file_sizes.txt
-shasum bam/* > bam_file_sha1s.txt
+du -h mkdup/* > bam_file_sizes.txt
+shasum mkdup/* > bam_file_sha1s.txt
 
 
 
