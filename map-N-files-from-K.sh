@@ -89,9 +89,9 @@ for((Idx=$START; Idx<=$STOP; Idx++)); do
   
   # now, map, convert to bam, fix mates, sort in coordinate order, and
   # finally remove the intermediate fixed-mate file
-  bwa mem -R $RGString $GENOME $READ1 $READ2 2> $BWA_STDERR | \
-    samtools view -b -1 - 2> $SAM_VIEW_STDERR | \
-    samtools fixmate -m -O BAM - $FIXEDMATES 2> $SAM_FIX_STDERR && \
+  bwa mem -R $RGString $GENOME $READ1 $READ2 2> $BWA_STDERR |
+    samtools view -b -1 - 2> $SAM_VIEW_STDERR |
+    samtools fixmate -m -O BAM - $FIXEDMATES 2> $SAM_FIX_STDERR &&
   samtools sort $FIXEDMATES 2> $SAM_SORT_STDERR > $SORTED &&
   rm -f $FIXEDMATES &&
   echo "Done mapping file index $Idx at $(date)" # this only gets printed if it was successful
@@ -118,10 +118,12 @@ for SM in $SM_TAGS; do
   # some error file names
   SAM_MERGE_STDERR=stderr/samtools_merge_stderr_$SM
   SAM_MARK_STDERR=stderr/samtools_markdup_stderr_$SM
+  SAM_INDEX_STDERR=stderr/samtools_index_stderr_$SM
   
   # then we merge them and mark duplicates
   samtools merge $MERGED_OUTPUT $INPUT_BAMS  2> $SAM_MERGE_STDERR &&
   samtools markdup $MERGED_OUTPUT $MKDUP_OUTPUT  2> $SAM_MARK_STDERR &&
+  samtools index $MKDUP_OUTPUT 2> $SAM_INDEX_STDERR &&
   rm -f $MERGED_OUTPUT
   
 done
