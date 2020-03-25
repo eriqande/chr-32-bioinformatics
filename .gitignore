@@ -1,0 +1,15 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.fq.gz
+*.fna*
+*.fq*
+*.sam*
+*.bam*
+*.vcf*
+bam
+fastqs
+genome
+stderr
+vcf
