@@ -6,8 +6,10 @@ around in your scratch space!
 In this exercise, you are going to align reads from multiple FASTQ files
 into SAM files, convert those to the binary BAM format, run them through
 the samtools fixmate utility to compute insert lengths appropriately, etc,
+sort those BAM files into coordinate order, and then merge all the BAM files
+from a single individual and library prep and 
 and then run the resulting BAM file through samtools markdup to identify
-PCR duplicates.
+PCR duplicates. Finally, you will use samtools to index that BAM file.
 
 The commands that I used to accomplish these tasks are in three following scripts.
 You will need to modify the command lines within them to work on your own system.
@@ -21,12 +23,16 @@ download the FASTQ files to be used in the exercise.
 2. map-N-files-from-K.sh:  This is a shell script that uses the information
 in chinook-fastq-meta-data.tsv to cycle over N fastq files (starting from the K-th
 file index in chinook-fastq-meta-data.tsv) and for each file it maps it, adds some 
-mate information, sorts it in coordinate order, then marks PCR duplicates.
+mate information, sorts it in coordinate order.  At the end it merges BAMs from the
+same individual and then marks PCR duplicates.  You should always make sure that,
+when this is run, all the lanes of any individuals being mapped are included in the
+run.  Basically this means that N should always be a multiple of 8 and K should always
+be a multiple of 8 (including 8 * 0) plus 1.
 
 3. run-single-job.sh:   A shell script with imbedded SBATCH directives that
 runs map-N-files-from-K.sh on the first 128 pairs of FASTQ files listed in
 chinook-fastq-meta-data.tsv. (Note that there are 1280 total pairs of FASTQ
-files.  We will map the rest next week.)
+files.  We will map the remaining 90% next week.)
 
 Your mission is to review those scripts, understand how they work, and
 modify them, if need be, for your own HPCC accounts, then use them to
