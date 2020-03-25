@@ -24,7 +24,8 @@ if [ $# -ne 2 ]; then
 would align file pairs starting at 65 and going up to 96
 
 NOTE: you should choose N and K so that all the FASTQ files from each
-sample involved are processed.
+sample involved are processed. This means doing things in mutliples
+of eight, basically.
     "
     
     exit 1;
